@@ -182,3 +182,41 @@ function show_bogo_badge_on_shop() {
         }
     }
 }
+
+// =====================
+// Fully separate each BOGO unit in cart
+// =====================
+add_filter('woocommerce_add_cart_item_data', function ($cart_item_data, $product_id, $variation_id) {
+    $product = wc_get_product($variation_id ?: $product_id);
+    if (is_bogo_item(['data' => $product])) {
+        // Add a unique key to prevent merging
+        $cart_item_data['bogo_unique'] = uniqid('bogo_', true);
+    }
+    return $cart_item_data;
+}, 10, 3);
+
+add_filter('woocommerce_add_to_cart_quantity', function ($quantity, $product_id) {
+    $product = wc_get_product($product_id);
+    if (is_bogo_item(['data' => $product])) {
+        // Force adding one item at a time
+        return 1;
+    }
+    return $quantity;
+}, 10, 2);
+
+add_action('woocommerce_add_to_cart', function ($cart_item_key, $product_id, $quantity, $variation_id, $variation, $cart_item_data) {
+    $product = wc_get_product($variation_id ?: $product_id);
+    if (is_bogo_item(['data' => $product]) && $quantity > 1) {
+        for ($i = 1; $i < $quantity; $i++) {
+            // Add remaining quantities individually
+            WC()->cart->add_to_cart($product_id, 1, $variation_id, $variation, $cart_item_data);
+        }
+    }
+}, 20, 6);
+
+
+add_action('woocommerce_add_to_cart', function($cart_item_key, $product_id, $quantity){
+    $product = wc_get_product($product_id);
+    error_log('Added to cart: '.$product->get_name().' qty='.$quantity);
+}, 10, 3);
+
